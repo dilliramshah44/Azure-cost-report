@@ -100,7 +100,7 @@ def generate_cost_report():
                 if month['name'] not in summary_data:
                     summary_data[month['name']] = 0
                 summary_data[month['name']] += cost
-                time.sleep(0.5)  # Add small delay between calls to reduce rate limit risk
+                time.sleep(1)  # Add small delay between calls to reduce rate limit risk
             except Exception as e:
                 print(f"   Error fetching cost for {month['name']}. Details: {e}")
                 report_row[month['name']] = 'N/A'
