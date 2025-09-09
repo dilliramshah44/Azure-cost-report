@@ -9,14 +9,8 @@ from azure.mgmt.subscription import SubscriptionClient
 from azure.mgmt.costmanagement import CostManagementClient
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, Attachment, FileContent, FileName, FileType, Disposition
-# Make sure you have the following packages installed:
-# pip install azure-identity azure-mgmt-subscription azure-mgmt-costmanagement python-dateutil sendgrid
 
 def get_last_three_full_months():
-    """
-    Calculates the start and end dates for the last three full calendar months.
-    Returns a list of dictionaries, each containing month name, start date, and end date.
-    """
     today = datetime.now()
     month_data = []
     for i in range(3, 0, -1):
@@ -25,47 +19,32 @@ def get_last_three_full_months():
         month_name = start_of_month.strftime('%B %Y')
         start_date_str = start_of_month.strftime('%Y-%m-%dT%H:%M:%SZ')
         end_date_str = end_of_month.strftime('%Y-%m-%dT%H:%M:%SZ')
-        month_data.append({
-            "name": month_name,
-            "start": start_date_str,
-            "end": end_date_str
-        })
+        month_data.append({"name": month_name, "start": start_date_str, "end": end_date_str})
     return month_data
 
 def get_subscription_costs(cost_client, scope, start_date, end_date, max_retries=5):
-    """
-    Fetches costs for a subscription within a specific date range with retry on rate limiting.
-    Returns the total cost in the currency returned by Azure (already in INR).
-    """
     for attempt in range(max_retries):
         try:
             query_definition = {
                 "type": "ActualCost",
                 "timeframe": "Custom",
-                "timePeriod": {
-                    "from": start_date,
-                    "to": end_date
-                },
+                "timePeriod": {"from": start_date, "to": end_date},
                 "dataset": {
                     "granularity": "None",
                     "aggregation": {
-                        "totalCost": {
-                            "name": "PreTaxCost",
-                            "function": "Sum"
-                        }
+                        "totalCost": {"name": "PreTaxCost", "function": "Sum"}
                     }
                 }
             }
             query_result = cost_client.query.usage(scope=scope, parameters=query_definition)
             if query_result.rows and len(query_result.rows) > 0:
-                cost = float(query_result.rows[0][0])
-                return cost
+                return float(query_result.rows[0][0])
             else:
                 print(f"   No cost data found for period {start_date} to {end_date}")
                 return 0.0
         except Exception as e:
             if '429' in str(e):
-                wait_time = 2 ** attempt  # exponential backoff: 1, 2, 4, 8, ...
+                wait_time = 2 ** attempt
                 print(f"   Rate limited, retrying after {wait_time} seconds...")
                 time.sleep(wait_time)
             else:
@@ -74,9 +53,6 @@ def get_subscription_costs(cost_client, scope, start_date, end_date, max_retries
     return 0.0
 
 def generate_cost_report():
-    """
-    Generates the Azure cost report and returns the filename and summary data.
-    """
     subscription_ids_str = os.getenv("SUBSCRIPTION_IDS")
     if not subscription_ids_str:
         print("Error: SUBSCRIPTION_IDS environment variable is not set.")
@@ -86,6 +62,7 @@ def generate_cost_report():
     if not target_subscription_ids:
         print("Please add at least one subscription ID to the 'SUBSCRIPTION_IDS' environment variable.")
         return None, None
+
     print("Authenticating with Azure via Service Principal...")
     try:
         credential = DefaultAzureCredential()
@@ -94,6 +71,7 @@ def generate_cost_report():
     except Exception as e:
         print(f"Authentication failed. Please ensure you have configured credentials. Error: {e}")
         return None, None
+
     subscription_client = SubscriptionClient(credential)
     cost_client = CostManagementClient(credential)
     months = get_last_three_full_months()
@@ -102,6 +80,7 @@ def generate_cost_report():
     print(f"Reporting period: {months[0]['name']} to {months[-1]['name']}\n")
     report_data = []
     summary_data = {}
+
     for sub_id in target_subscription_ids:
         report_row = {'Subscription ID': sub_id}
         try:
@@ -121,10 +100,12 @@ def generate_cost_report():
                 if month['name'] not in summary_data:
                     summary_data[month['name']] = 0
                 summary_data[month['name']] += cost
+                time.sleep(0.5)  # Add small delay between calls to reduce rate limit risk
             except Exception as e:
                 print(f"   Error fetching cost for {month['name']}. Details: {e}")
                 report_row[month['name']] = 'N/A'
         report_data.append(report_row)
+
     file_name = f"azure_cost_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
     try:
         fieldnames = ['Subscription ID', 'Subscription Name'] + [m['name'] for m in months]
@@ -146,9 +127,6 @@ def generate_cost_report():
         return None, None
 
 def send_email_with_attachment(csv_file_path, summary_data):
-    """
-    Sends the cost report via SendGrid with the CSV file attached.
-    """
     sendgrid_api_key = os.getenv("SENDGRID_API_KEY")
     sender_email = os.getenv("SENDER_EMAIL")
     receiver_emails_str = os.getenv("RECEIVER_EMAILS")
@@ -246,9 +224,6 @@ Pangea Technologies
         return False
 
 def main():
-    """
-    Main function to generate the Azure cost report and send it via email.
-    """
     print("Starting Azure Cost Report Generation...")
     print("=" * 50)
     
