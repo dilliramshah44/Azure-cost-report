@@ -210,92 +210,45 @@ def send_email_with_attachment(csv_file_path, summary_data):
     
     # Create the standard HTML email content
     html_content = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-            .container {{ max-width: 800px; margin: 0 auto; padding: 20px; }}
-            .header {{ background-color: #0078d4; color: white; padding: 20px; text-align: center; }}
-            .content {{ padding: 20px; background-color: #f9f9f9; }}
-            .summary {{ background-color: #e8f4f8; padding: 15px; border-radius: 5px; margin-bottom: 20px; }}
-            .footer {{ text-align: center; padding: 20px; font-size: 12px; color: #666; }}
-            table {{ width: 100%; border-collapse: collapse; margin: 15px 0; }}
-            th, td {{ padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }}
-            th {{ background-color: #f2f2f2; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h1>Azure Cost Report</h1>
-                <p>Pangea Production Environment</p>
-            </div>
-            
-            <div class="content">
-                <p>Dear IT Admin,</p>
-                
-                <p>Please find attached the Azure cost report for the last three months. This report provides a detailed breakdown of our cloud infrastructure costs across all the subscriptions.</p>
-                
-                <div class="summary">
-                    <h3>Cost Summary</h3>
-                    <table>
-                        <tr>
-                            <th>Period</th>
-                            <th>Total Cost (INR)</th>
-                        </tr>
+    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #f9f9f9; padding: 20px;">
+            <div style="background-color: #e8f4f8; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+                <h3>Cost Summary</h3>
+                <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
+                    <tr style="background-color: #f2f2f2;">
+                        <th style="padding: 12px; text-align: left; border-bottom: 1px solid #ddd;">Period</th>
+                        <th style="padding: 12px; text-align: left; border-bottom: 1px solid #ddd;">Total Cost (INR)</th>
+                    </tr>
     """
     
     # Add summary rows
     for month_name, total_cost in summary_data.items():
         html_content += f"""
-                        <tr>
-                            <td>{month_name}</td>
-                            <td>₹{total_cost:,.2f}</td>
-                        </tr>
-        """
+                    <tr>
+                        <td style="padding: 12px; text-align: left; border-bottom: 1px solid #ddd;">{month_name}</td>
+                        <td style="padding: 12px; text-align: left; border-bottom: 1px solid #ddd;">₹{total_cost:,.2f}</td>
+                    </tr>
+    """
     
     html_content += f"""
-                    </table>
-                </div>
-                
-                <h3>Report Details</h3>
-                <ul>
-                    <li><strong>Report Period:</strong> Last 3 complete months</li>
-                    <li><strong>Currency:</strong> Indian Rupees (INR)</li>
-                    <li><strong>Cost Type:</strong> Pre-tax actual costs</li>
-                    <li><strong>Generated On:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</li>
-                </ul>
-                
-                <p>The attached CSV file contains detailed cost breakdowns by subscription for your analysis.</p>
-                
-                <p>If you have any questions or need additional information, please contact the Production team.</p>
-                
-                <p>Best regards,<br>
-                <strong>Platform Team</strong><br>
-                Pangea Technologies</p>
+                </table>
             </div>
             
-            <div class="footer">
-                <p>This is an automated report. Please do not reply to this email.</p>
-                <p>© {datetime.now().year} Pangea Technologies. All rights reserved.</p>
-            </div>
+            <h3>Report Details</h3>
+            <ul style="list-style-type: none; padding: 0;">
+                <li style="margin-bottom: 5px;"><strong>Report Period:</strong> Last 3 complete months</li>
+                <li style="margin-bottom: 5px;"><strong>Currency:</strong> Indian Rupees (INR)</li>
+                <li style="margin-bottom: 5px;"><strong>Cost Type:</strong> Pre-tax actual costs</li>
+                <li style="margin-bottom: 5px;"><strong>Generated On:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</li>
+            </ul>
         </div>
-    </body>
-    </html>
+    </div>
     """
 
-    # Create plain text version
+    # Create a simplified plain text version
     text_content = f"""
-Azure Cost Report - Pangea Production Environment
-
-Dear IT Admin,
-
-Please find attached the Azure cost report for the last three months. This report provides a detailed breakdown of our cloud infrastructure costs across all the subscriptions. The attached CSV file contains detailed cost breakdowns by subscription for your analysis.
-
 Cost Summary:
 """
-    
     for month_name, total_cost in summary_data.items():
         text_content += f"{month_name}: ₹{total_cost:,.2f} INR\n"
     
@@ -305,10 +258,6 @@ Report Details:
 - Currency: Indian Rupees (INR)
 - Cost Type: Pre-tax actual costs
 - Generated On: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-
-Best regards,
-Platform Team
-Pangea Technologies
 """
 
     try:
