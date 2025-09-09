@@ -1,6 +1,7 @@
 import csv
 import os
 import base64
+import time
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from azure.identity import DefaultAzureCredential
@@ -31,39 +32,46 @@ def get_last_three_full_months():
         })
     return month_data
 
-def get_subscription_costs(cost_client, scope, start_date, end_date):
+def get_subscription_costs(cost_client, scope, start_date, end_date, max_retries=5):
     """
-    Fetches costs for a subscription within a specific date range.
+    Fetches costs for a subscription within a specific date range with retry on rate limiting.
     Returns the total cost in the currency returned by Azure (already in INR).
     """
-    try:
-        query_definition = {
-            "type": "ActualCost",
-            "timeframe": "Custom",
-            "timePeriod": {
-                "from": start_date,
-                "to": end_date
-            },
-            "dataset": {
-                "granularity": "None",
-                "aggregation": {
-                    "totalCost": {
-                        "name": "PreTaxCost",
-                        "function": "Sum"
+    for attempt in range(max_retries):
+        try:
+            query_definition = {
+                "type": "ActualCost",
+                "timeframe": "Custom",
+                "timePeriod": {
+                    "from": start_date,
+                    "to": end_date
+                },
+                "dataset": {
+                    "granularity": "None",
+                    "aggregation": {
+                        "totalCost": {
+                            "name": "PreTaxCost",
+                            "function": "Sum"
+                        }
                     }
                 }
             }
-        }
-        query_result = cost_client.query.usage(scope=scope, parameters=query_definition)
-        if query_result.rows and len(query_result.rows) > 0:
-            cost = float(query_result.rows[0][0])
-            return cost
-        else:
-            print(f"   No cost data found for period {start_date} to {end_date}")
-            return 0.0
-    except Exception as e:
-        print(f"   Error fetching cost data: {e}")
-        return 0.0
+            query_result = cost_client.query.usage(scope=scope, parameters=query_definition)
+            if query_result.rows and len(query_result.rows) > 0:
+                cost = float(query_result.rows[0][0])
+                return cost
+            else:
+                print(f"   No cost data found for period {start_date} to {end_date}")
+                return 0.0
+        except Exception as e:
+            if '429' in str(e):
+                wait_time = 2 ** attempt  # exponential backoff: 1, 2, 4, 8, ...
+                print(f"   Rate limited, retrying after {wait_time} seconds...")
+                time.sleep(wait_time)
+            else:
+                print(f"   Error fetching cost data: {e}")
+                break
+    return 0.0
 
 def generate_cost_report():
     """
@@ -78,7 +86,6 @@ def generate_cost_report():
     if not target_subscription_ids:
         print("Please add at least one subscription ID to the 'SUBSCRIPTION_IDS' environment variable.")
         return None, None
-
     print("Authenticating with Azure via Service Principal...")
     try:
         credential = DefaultAzureCredential()
@@ -87,7 +94,6 @@ def generate_cost_report():
     except Exception as e:
         print(f"Authentication failed. Please ensure you have configured credentials. Error: {e}")
         return None, None
-
     subscription_client = SubscriptionClient(credential)
     cost_client = CostManagementClient(credential)
     months = get_last_three_full_months()
@@ -96,7 +102,6 @@ def generate_cost_report():
     print(f"Reporting period: {months[0]['name']} to {months[-1]['name']}\n")
     report_data = []
     summary_data = {}
-
     for sub_id in target_subscription_ids:
         report_row = {'Subscription ID': sub_id}
         try:
@@ -120,7 +125,6 @@ def generate_cost_report():
                 print(f"   Error fetching cost for {month['name']}. Details: {e}")
                 report_row[month['name']] = 'N/A'
         report_data.append(report_row)
-
     file_name = f"azure_cost_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
     try:
         fieldnames = ['Subscription ID', 'Subscription Name'] + [m['name'] for m in months]
@@ -206,7 +210,6 @@ def send_email_with_attachment(csv_file_path, summary_data):
     </body>
     </html>
     """
-
     text_content = f"""
 Azure Cost Report - Pangea Production Environment
 Dear IT Admin,
@@ -216,7 +219,6 @@ Best regards,
 Platform Team
 Pangea Technologies
 """
-
     try:
         message = Mail(
             from_email=sender_email,
