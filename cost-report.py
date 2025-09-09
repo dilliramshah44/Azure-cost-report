@@ -22,7 +22,7 @@ def get_last_three_full_months():
         month_data.append({"name": month_name, "start": start_date_str, "end": end_date_str})
     return month_data
 
-def get_subscription_costs(cost_client, scope, start_date, end_date, max_retries=5):
+def get_subscription_costs(cost_client, scope, start_date, end_date, max_retries=8):
     for attempt in range(max_retries):
         try:
             query_definition = {
@@ -44,12 +44,13 @@ def get_subscription_costs(cost_client, scope, start_date, end_date, max_retries
                 return 0.0
         except Exception as e:
             if '429' in str(e):
-                wait_time = 2 ** attempt
-                print(f"   Rate limited, retrying after {wait_time} seconds...")
+                wait_time = min(2 ** attempt, 60)  # cap wait_time to max 60 seconds
+                print(f"   Rate limited, retrying after {wait_time} seconds (attempt {attempt + 1})...")
                 time.sleep(wait_time)
             else:
                 print(f"   Error fetching cost data: {e}")
                 break
+    print(f"   Failed to fetch cost data for period {start_date} to {end_date} after {max_retries} retries.")
     return 0.0
 
 def generate_cost_report():
@@ -100,7 +101,7 @@ def generate_cost_report():
                 if month['name'] not in summary_data:
                     summary_data[month['name']] = 0
                 summary_data[month['name']] += cost
-                time.sleep(1)  # Add small delay between calls to reduce rate limit risk
+                time.sleep(2)  # Increased delay between calls to reduce rate limit risk
             except Exception as e:
                 print(f"   Error fetching cost for {month['name']}. Details: {e}")
                 report_row[month['name']] = 'N/A'
