@@ -1,0 +1,5 @@
+azure-identity
+azure-mgmt-subscription
+azure-mgmt-costmanagement
+python-dateutil
+sendgrid
