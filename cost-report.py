@@ -82,20 +82,20 @@ def get_subscription_costs(cost_client, scope, start_date, end_date):
 
 def generate_cost_report():
     """
-    Generates the Azure cost report and returns the filename, summary data, and subscription names.
+    Generates the Azure cost report and returns the filename and summary data.
     """
     # Get Subscription IDs from environment variables
     # The variable should be a comma-separated string, e.g., "id1,id2,id3"
     subscription_ids_str = os.getenv("SUBSCRIPTION_IDS")
     if not subscription_ids_str:
         print("Error: SUBSCRIPTION_IDS environment variable is not set.")
-        return None, None, None
+        return None, None
         
     target_subscription_ids = [sub.strip() for sub in subscription_ids_str.split(',') if sub.strip()]
     
     if not target_subscription_ids:
         print("Please add at least one subscription ID to the 'SUBSCRIPTION_IDS' environment variable.")
-        return None, None, None
+        return None, None
 
     print("Authenticating with Azure via Service Principal...")
     try:
@@ -107,7 +107,7 @@ def generate_cost_report():
         print("Authentication successful.")
     except Exception as e:
         print(f"Authentication failed. Please ensure you have configured credentials. Error: {e}")
-        return None, None, None
+        return None, None
 
     subscription_client = SubscriptionClient(credential)
     cost_client = CostManagementClient(credential)
@@ -119,7 +119,6 @@ def generate_cost_report():
 
     report_data = []
     summary_data = {}
-    subscription_names = [] # List to store subscription names
 
     # Get subscription names and loop through each of the last three months to get the cost
     for sub_id in target_subscription_ids:
@@ -128,7 +127,6 @@ def generate_cost_report():
         try:
             sub = subscription_client.subscriptions.get(subscription_id=sub_id)
             report_row['Subscription Name'] = sub.display_name
-            subscription_names.append(sub.display_name) # Add name to list
             print(f"-> Processing subscription: {sub.display_name} ({sub_id})")
         except Exception as e:
             report_row['Subscription Name'] = "N/A"
@@ -172,17 +170,17 @@ def generate_cost_report():
         for month_name, total_cost in summary_data.items():
             print(f"Total for {month_name}: ₹{total_cost:.2f} INR")
             
-        return file_name, summary_data, subscription_names
+        return file_name, summary_data
         
     except PermissionError:
         print(f"\nPermission Denied: Could not write to '{file_name}'.")
         print("Please ensure the file is not open in another program (like Excel) and that you have write permissions for this directory.")
-        return None, None, None
+        return None, None
     except Exception as e:
         print(f"\nAn unexpected error occurred while writing the file: {e}")
-        return None, None, None
+        return None, None
 
-def send_email_with_attachment(csv_file_path, summary_data, subscription_names):
+def send_email_with_attachment(csv_file_path, summary_data):
     """
     Sends the cost report via SendGrid with the CSV file attached.
     """
@@ -198,10 +196,6 @@ def send_email_with_attachment(csv_file_path, summary_data, subscription_names):
     if not to_emails:
         print("Error: No receiver emails found in RECEIVER_EMAILS environment variable.")
         return False
-
-    # Create a formatted string of subscription names for the email body
-    subscription_list_html = "<ul>" + "".join([f"<li>{name}</li>" for name in subscription_names]) + "</ul>"
-    subscription_list_text = ", ".join(subscription_names)
     
     # Read the CSV file content
     try:
@@ -214,7 +208,7 @@ def send_email_with_attachment(csv_file_path, summary_data, subscription_names):
     # Create email content
     subject = f"Azure Cost Report - {datetime.now().strftime('%B %Y')}"
     
-    # Create HTML email content with summary and dynamic list
+    # Create the standard HTML email content
     html_content = f"""
     <!DOCTYPE html>
     <html>
@@ -239,12 +233,10 @@ def send_email_with_attachment(csv_file_path, summary_data, subscription_names):
             </div>
             
             <div class="content">
-                <p>Dear Pangea Production Team,</p>
+                <p>Dear IT Admin,</p>
                 
-                <p>Please find attached the Azure cost report for the last three months. This report provides a detailed breakdown of our cloud infrastructure costs across the following subscriptions:</p>
+                <p>Please find attached the Azure cost report for the last three months. This report provides a detailed breakdown of our cloud infrastructure costs across all the subscriptions.</p>
                 
-                {subscription_list_html}
-
                 <div class="summary">
                     <h3>Cost Summary</h3>
                     <table>
@@ -297,11 +289,9 @@ def send_email_with_attachment(csv_file_path, summary_data, subscription_names):
     text_content = f"""
 Azure Cost Report - Pangea Production Environment
 
-Dear Pangea Production Team,
+Dear IT Admin,
 
-Please find attached the Azure cost report for the last three months.
-
-This report provides a detailed breakdown of our cloud infrastructure costs across the following subscriptions: {subscription_list_text}.
+Please find attached the Azure cost report for the last three months. This report provides a detailed breakdown of our cloud infrastructure costs across all the subscriptions. The attached CSV file contains detailed cost breakdowns by subscription for your analysis.
 
 Cost Summary:
 """
@@ -315,8 +305,6 @@ Report Details:
 - Currency: Indian Rupees (INR)
 - Cost Type: Pre-tax actual costs
 - Generated On: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-
-The attached CSV file contains detailed cost breakdowns by subscription.
 
 Best regards,
 Platform Team
@@ -361,20 +349,20 @@ def main():
     print("Starting Azure Cost Report Generation...")
     print("=" * 50)
     
-    # Generate the cost report and get the subscription names
-    csv_file, summary_data, subscription_names = generate_cost_report()
+    # Generate the cost report and get the summary data
+    csv_file, summary_data = generate_cost_report()
     
-    if csv_file and summary_data and subscription_names:
+    if csv_file and summary_data:
         print("\n" + "=" * 50)
         print("Sending email with cost report...")
         
-        # Send email with attachment and subscription names
-        success = send_email_with_attachment(csv_file, summary_data, subscription_names)
+        # Send email with attachment and summary data
+        success = send_email_with_attachment(csv_file, summary_data)
         
         if success:
             print("✅ Process completed successfully!")
             print(f"📊 Report generated: {csv_file}")
-            print("📧 Email sent to production team")
+            print("📧 Email sent to IT Admin")
         else:
             print("❌ Failed to send email. Report was generated but not sent.")
     else:
