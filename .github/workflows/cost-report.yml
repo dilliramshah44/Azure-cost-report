@@ -35,10 +35,10 @@ jobs:
           # Azure Service Principal Credentials (Secrets)
           AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
           AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
-          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_CLIENT_SECRET: ${{ vars.AZURE_CLIENT_SECRET }}
           
           # SendGrid and Email Details (Secrets/Variables)
-          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          SENDGRID_API_KEY: ${{ vars.SENDGRID_API_KEY }}
           SENDER_EMAIL: ${{ vars.SENDER_EMAIL }}
           RECEIVER_EMAILS: ${{ vars.RECEIVER_EMAILS }}
           
