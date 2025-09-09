@@ -1,0 +1,46 @@
+name: Monthly Azure Cost Report
+
+on:
+  schedule:
+    # Runs at 00:00 on the 1st day of every month
+    - cron: '0 0 1 * *'
+  workflow_dispatch:
+    # Allows for manual triggering of the workflow
+
+env:
+  PYTHON_VERSION: "3.9"
+
+jobs:
+  generate-report:
+    runs-on: ubuntu-latest
+    environment: cost-report # Use the GitHub Environment you configured
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Azure Cost Report Script
+        run: python cost-report.py
+        env:
+          # Azure Service Principal Credentials (Secrets)
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          
+          # SendGrid and Email Details (Secrets/Variables)
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          SENDER_EMAIL: ${{ vars.SENDER_EMAIL }}
+          RECEIVER_EMAILS: ${{ vars.RECEIVER_EMAILS }}
+          
+          # Azure Subscription IDs (Variable)
+          SUBSCRIPTION_IDS: ${{ vars.SUBSCRIPTION_IDS }}
