@@ -211,7 +211,7 @@ def send_email_with_attachment(csv_file_path, summary_data):
 Azure Cost Report - Pangea Production Environment
 Dear IT Admin,
 Please find attached the Azure cost report for the last three months providing a detailed cost breakdown across all subscriptions.
-If you have questions or require further details, please contact the Production team.
+If you have questions or require further details, please contact the Platform team.
 Best regards,
 Platform Team
 Pangea Technologies
