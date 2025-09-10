@@ -63,7 +63,6 @@ def generate_cost_report():
     if not target_subscription_ids:
         print("Please add at least one subscription ID to the 'SUBSCRIPTION_IDS' environment variable.")
         return None, None
-
     print("Authenticating with Azure via Service Principal...")
     try:
         credential = DefaultAzureCredential()
@@ -72,7 +71,6 @@ def generate_cost_report():
     except Exception as e:
         print(f"Authentication failed. Please ensure you have configured credentials. Error: {e}")
         return None, None
-
     subscription_client = SubscriptionClient(credential)
     cost_client = CostManagementClient(credential)
     months = get_last_three_full_months()
@@ -81,9 +79,10 @@ def generate_cost_report():
     print(f"Reporting period: {months[0]['name']} to {months[-1]['name']}\n")
     report_data = []
     summary_data = {}
-
+    avg_data = {}
     for sub_id in target_subscription_ids:
         report_row = {'Subscription ID': sub_id}
+        month_costs = []
         try:
             sub = subscription_client.subscriptions.get(subscription_id=sub_id)
             report_row['Subscription Name'] = sub.display_name
@@ -97,19 +96,25 @@ def generate_cost_report():
                 scope = f"/subscriptions/{sub_id}"
                 cost = get_subscription_costs(cost_client, scope, month['start'], month['end'])
                 report_row[month['name']] = cost
+                month_costs.append(cost)
                 print(f"   Cost for {month['name']}: ₹{cost:.2f} INR")
                 if month['name'] not in summary_data:
                     summary_data[month['name']] = 0
                 summary_data[month['name']] += cost
-                time.sleep(2)  # Increased delay between calls to reduce rate limit risk
+                time.sleep(2)  # delay to reduce rate limit risk
             except Exception as e:
                 print(f"   Error fetching cost for {month['name']}. Details: {e}")
                 report_row[month['name']] = 'N/A'
+                month_costs.append(0.0)
+        # Calculate 3 month average
+        avg_cost = sum(month_costs) / len(month_costs) if month_costs else 0
+        report_row["3 Month Avg"] = avg_cost
+        avg_data[sub_id] = avg_cost
+        print(f"   3 Month Avg: ₹{avg_cost:.2f} INR")
         report_data.append(report_row)
-
     file_name = f"azure_cost_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
     try:
-        fieldnames = ['Subscription ID', 'Subscription Name'] + [m['name'] for m in months]
+        fieldnames = ['Subscription ID', 'Subscription Name'] + [m['name'] for m in months] + ["3 Month Avg"]
         with open(file_name, 'w', newline='', encoding='utf-8') as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
@@ -118,6 +123,9 @@ def generate_cost_report():
         print("\nSummary:")
         for month_name, total_cost in summary_data.items():
             print(f"Total for {month_name}: ₹{total_cost:.2f} INR")
+        print("3 Month Average by subscription:")
+        for sub_id, avg_cost in avg_data.items():
+            print(f"{sub_id}: ₹{avg_cost:.2f} INR")
         return file_name, summary_data
     except PermissionError:
         print(f"\nPermission Denied: Could not write to '{file_name}'.")
@@ -171,11 +179,8 @@ def send_email_with_attachment(csv_file_path, summary_data):
             
             <div class="content">
                 <p>Dear IT Admin,</p>
-                
                 <p>Please find attached the Azure cost report for the last three months. This report provides a detailed breakdown of our cloud infrastructure costs across all the subscriptions.</p>
-                
                 <p>If you require any further details or have questions regarding this report, please contact the Production team.</p>
-                
                 <p>Best regards,<br>
                 <strong>Platform Team</strong><br>
                 Pangea Technologies</p>
@@ -242,6 +247,5 @@ def main():
             print("❌ Failed to send email. Report was generated but not sent.")
     else:
         print("❌ Failed to generate cost report.")
-
 if __name__ == "__main__":
     main()
